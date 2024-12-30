@@ -1,51 +1,47 @@
 # DuckDB-Service Project
-This project was a significant learning experience for me as it was my first time working with technologies like Go, Raft, and DuckDB. Despite spending only two days to develop this project, I managed to implement a functional prototype. However, there are still several aspects that need improvement, which are outlined in the TODO list.
+This project was a significant learning experience for me as it was my first time working with technologies like Go, Raft, and DuckDB. Despite spending only two days developing this project, I managed to implement a functional prototype. However, several aspects still need improvement, which are outlined in the TODO list.
 
+## Details
 
-## Details 
-db/db.go in file open duck db and execute and query duck db. we donot need connection pool because sql/DB maintains its own pool.
-
-http/service.go in this we have endpoint and its handler define. each hander do some check and forward request to store
-
-store/store.go in this have Store Interface defined and DistributedStore implement these Store interface and raft interface. raft have 1 main method `Apply`. when ever we to any write operation we will call raft.Apply which will then called on every node. There are other method like Snapshot() Restore() etc. 
-Very good detail about Apply is mentioned here [harshicorp-raft-appply](https://github.com/hashicorp/raft/blob/main/docs/apply.md)
-
-
+- **`db/db.go`**: This file opens DuckDB and executes queries on it. We do not need a connection pool because `sql/DB` maintains its own pool.
+- **`http/service.go`**: This file defines the endpoints and their handlers. Each handler performs some checks and forwards requests to the store.
+- **`store/store.go`**: This file contains the `Store` interface, which is implemented by `DistributedStore`. `DistributedStore` implements both the `Store` interface and the Raft interface. Raft has a main method, `Apply`, which is called whenever a write operation is performed. This operation propagates to every node. Other methods include `Snapshot()`, `Restore()`, etc. Detailed information about `Apply` can be found in the [HashiCorp Raft Apply documentation](https://github.com/hashicorp/raft/blob/main/docs/apply.md).
 
 ## Features
+
 - Designed to make DuckDB a robust, fault-tolerant, and distributed system.
 - Supports running multiple DuckDB instances that remain synchronized.
-- Implements eventual consistency for reads. While strong consistency can be enforced, it requires routing reads through Raft like writes, which could impact performance.
+- Implements eventual consistency for reads. While strong consistency can be enforced, it requires routing reads through Raft, similar to writes, which could impact performance.
 - Scales the cluster to enhance read performance.
 - Write operations are performed only on the leader node. However, the server supports request redirection, allowing clients to send write requests to any node, which will redirect them to the leader.
 - Utilizes Raft for maintaining logs of write operations. To prevent unbounded log growth, the system snapshots the database state during log truncation, as managed by Raft.
 
-
 ## TODO & Ideas
-- Bulk Api support can be added, we can utilize db transaction for that.
+
+- Add bulk API support by utilizing database transactions.
 - Make the database and Raft configuration configurable.
-- Currently, creating a cluster requires starting one node with specific options to establish it as the leader. We can improve this process by introducing a `-bootstrap-server $HOST1:9301,$HOST2:9301,$HOST3:9301` option. Before starting the Raft server, it would wait for all bootstrap servers to connect, determine the leader, and proceed accordingly. (Alternatively, we could use etcd or Consul for leader selection.)
-- Currently, new nodes can be added by running additional instances, but node removal is not supported. The system will continue working if a node is down, but Raft will repeatedly try to ping the unreachable node. Implementing a mechanism to remove dead nodes after some time would improve efficiency.
-- The current implementation uses the `Export Database` command to snapshot the database. However, it might be possible to simply copy the database directory (this needs testing). Since Raft ensures no write operations occur during snapshotting, this approach could simplify the process.
-- Need to add unit test and system test.         
-- Use Multi-Raft([dragonboad](https://github.com/lni/dragonboat) or [etcd-raft](https://github.com/etcd-io/raft)) and partition  to support write accross multiple node 
-- Handle non-deterministic Fuction like now() and random() which can execute in different node diffrently. we can rewrite the sql for this issue.
-
-
+- Simplify cluster creation by introducing a `-bootstrap-server $HOST1:9301,$HOST2:9301,$HOST3:9301` option. Before starting the Raft server, it would wait for all bootstrap servers to connect, determine the leader, and proceed accordingly. (Alternatively, use etcd or Consul for leader selection.)
+- Support node removal. Currently, the system works if a node is down, but Raft repeatedly pings the unreachable node. Implementing a mechanism to remove dead nodes after some time would improve efficiency.
+- Optimize the database snapshot process. The current implementation uses the `Export Database` command, but it might be possible to copy the database directory directly. Since Raft ensures no write operations occur during snapshotting, this approach could simplify the process.
+- Add unit tests and system tests.
+- Implement Multi-Raft ([Dragonboat](https://github.com/lni/dragonboat) or [etcd-raft](https://github.com/etcd-io/raft)) and partitioning to support writes across multiple nodes.
+- Handle non-deterministic functions like `now()` and `random()`, which can execute differently on different nodes. Rewrite SQL queries to address this issue.
 
 ## Endpoints
+
 The current version of the DuckDB-Service project provides the following endpoints:
 
 ### `/db/execute`
+
 - Used for `CREATE`, `INSERT`, and `UPDATE` statements.
 - Example:
-```bash
-curl -v -L --post301 -XPOST 'localhost:9301/db/execute?pretty' \
--H "Content-Type: application/json" \
--d '{
-  "sql": "INSERT INTO abc(id, name) VALUES (1, \"abc\")"
-}'
-```
+  ```bash
+  curl -v -L --post301 -XPOST 'localhost:9301/db/execute?pretty' \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sql": "INSERT INTO abc(id, name) VALUES (1, \"abc\")"
+  }'
+   ```
 
 ### `/db/query`
 - Used for `SELECT` queries.

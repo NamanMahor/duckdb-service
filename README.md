@@ -1,5 +1,5 @@
 # DuckDB-Service Project
-This project was a significant learning experience for me as it was my first time working with technologies like Go, Raft, and DuckDB. Despite spending only two days developing this project, I managed to implement a functional prototype. However, several aspects still need improvement, which are outlined in the TODO list.
+I managed to implement a functional prototype. However, several aspects still need improvement, which are outlined in the TODO list.
 
 ## Details
 
